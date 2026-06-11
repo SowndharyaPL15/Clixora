@@ -45,12 +45,18 @@ const createShortUrl = async (req, res, next) => {
     const redirectUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/r/${shortCode}`;
     const qrCodeDataUrl = await QRCode.toDataURL(redirectUrl);
 
+    // Format expiry date to end of day if it is YYYY-MM-DD
+    let dbExpiry = expiry_date || null;
+    if (dbExpiry && /^\d{4}-\d{2}-\d{2}$/.test(dbExpiry)) {
+      dbExpiry = `${dbExpiry}T23:59:59.999Z`;
+    }
+
     // Insert into DB
     const newUrl = await db.query(
       `INSERT INTO urls (user_id, original_url, short_code, custom_alias, qr_code, expiry_date)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING *`,
-      [userId, original_url, shortCode, custom_alias || null, qrCodeDataUrl, expiry_date || null]
+      [userId, original_url, shortCode, custom_alias || null, qrCodeDataUrl, dbExpiry]
     );
 
     res.status(201).json({
@@ -106,12 +112,18 @@ const updateUrl = async (req, res, next) => {
       });
     }
 
+    // Format expiry date to end of day if it is YYYY-MM-DD
+    let dbExpiry = expiry_date || null;
+    if (dbExpiry && /^\d{4}-\d{2}-\d{2}$/.test(dbExpiry)) {
+      dbExpiry = `${dbExpiry}T23:59:59.999Z`;
+    }
+
     const result = await db.query(
       `UPDATE urls 
        SET original_url = $1, expiry_date = $2
        WHERE id = $3 AND user_id = $4
        RETURNING *`,
-      [original_url, expiry_date || null, id, userId]
+      [original_url, dbExpiry, id, userId]
     );
 
     res.status(200).json({
@@ -237,9 +249,19 @@ const createBulkUrls = async (req, res, next) => {
     
     // We run in a simple loop. For high volume, transactions are preferred.
     for (const urlItem of urls) {
-      const { original_url, custom_alias, expiry_date } = urlItem;
+      let { original_url, custom_alias, expiry_date } = urlItem;
 
-      if (!original_url || !isValidUrl(original_url)) {
+      if (!original_url) {
+        results.push({ original_url, error: 'URL is required' });
+        continue;
+      }
+
+      // Auto-prepend https:// if protocol is missing (consistent with single shorten validation)
+      if (!/^https?:\/\//i.test(original_url)) {
+        original_url = 'https://' + original_url;
+      }
+
+      if (!isValidUrl(original_url)) {
         results.push({ original_url, error: 'Invalid URL format' });
         continue;
       }
@@ -278,11 +300,17 @@ const createBulkUrls = async (req, res, next) => {
       const redirectUrl = `${process.env.BACKEND_URL || 'http://localhost:5000'}/r/${shortCode}`;
       const qrCodeDataUrl = await QRCode.toDataURL(redirectUrl);
 
+      // Format expiry date to end of day if it is YYYY-MM-DD
+      let dbExpiry = expiry_date || null;
+      if (dbExpiry && /^\d{4}-\d{2}-\d{2}$/.test(dbExpiry)) {
+        dbExpiry = `${dbExpiry}T23:59:59.999Z`;
+      }
+
       const newUrl = await db.query(
         `INSERT INTO urls (user_id, original_url, short_code, custom_alias, qr_code, expiry_date)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING *`,
-        [userId, original_url, shortCode, custom_alias || null, qrCodeDataUrl, expiry_date || null]
+        [userId, original_url, shortCode, custom_alias || null, qrCodeDataUrl, dbExpiry]
       );
       results.push({ original_url, short_code: shortCode, data: newUrl.rows[0] });
     }

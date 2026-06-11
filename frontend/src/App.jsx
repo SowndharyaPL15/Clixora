@@ -13,9 +13,14 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <div className="min-h-screen bg-slate-950 flex flex-col">
+        <div className="min-h-screen bg-[#FAFAF8] flex flex-col relative">
+          {/* Aurora Background Blobs */}
+          <div className="aurora-blob-1 top-[-200px] left-[-100px]"></div>
+          <div className="aurora-blob-2 bottom-[-150px] right-[-100px]"></div>
+          <div className="aurora-blob-3 top-[40%] right-[10%]"></div>
+
           <Navbar />
-          <div className="flex-grow">
+          <div className="flex-grow relative z-10">
             <Routes>
               {/* Public Auth Routes */}
               <Route element={<PublicRoute />}>
