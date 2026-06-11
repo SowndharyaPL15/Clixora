@@ -1,0 +1,12 @@
+# Root .gitignore
+node_modules/
+.env
+.env.local
+.env.production
+dist/
+database.sqlite
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
