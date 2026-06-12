@@ -4,7 +4,7 @@ import API from '../services/api';
 import { 
   Plus, Copy, Check, Trash2, Edit3, ExternalLink, BarChart3, 
   Calendar, QrCode, Search, X, Link as LinkIcon, Upload, Zap, 
-  MousePointerClick, Clock, ArrowUpRight
+  MousePointerClick, Clock, ArrowUpRight, Award, Activity 
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -34,20 +34,29 @@ const Dashboard = () => {
   const [activeQrCode, setActiveQrCode] = useState(null);
   const [quickError, setQuickError] = useState('');
 
-  const fetchUrls = async () => {
-    setLoading(true);
+  const fetchUrls = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     try {
       const response = await API.get('/urls');
       setUrls(response.data.data);
     } catch (err) {
-      setError('Failed to retrieve URLs');
+      if (!isBackground) {
+        setError('Failed to retrieve URLs');
+      }
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchUrls();
+
+    // Poll for link list and click statistics updates every 5 seconds in the background
+    const interval = setInterval(() => {
+      fetchUrls(true);
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
   const showToast = (message) => {
@@ -66,7 +75,6 @@ const Dashboard = () => {
     e.preventDefault();
     setQuickError('');
     try {
-      // Auto-prepend https:// if needed (matching backend behavior)
       let url = originalUrl.trim();
       if (url && !/^https?:\/\//i.test(url)) {
         url = 'https://' + url;
@@ -255,13 +263,47 @@ const Dashboard = () => {
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
+  // Stats Computations
+  const totalUrls = urls.length;
+  const totalClicks = urls.reduce((acc, curr) => acc + curr.click_count, 0);
+  
+  // Find Most Clicked Link
+  let mostClicked = null;
+  if (urls.length > 0) {
+    mostClicked = [...urls].sort((a, b) => b.click_count - a.click_count)[0];
+  }
+
+  // Compute Recent Activity logs
+  // We'll create list of recent events based on creation dates or visited dates
+  const recentActivities = [];
+  urls.forEach(url => {
+    recentActivities.push({
+      type: 'create',
+      time: new Date(url.created_at),
+      label: `Shortened: ${url.short_code}`,
+      description: `Linked to ${url.original_url.substring(0, 35)}...`
+    });
+    if (url.last_visited) {
+      recentActivities.push({
+        type: 'visit',
+        time: new Date(url.last_visited),
+        label: `Visited: ${url.short_code}`,
+        description: `Total clicks: ${url.click_count}`
+      });
+    }
+  });
+  // Sort activities by time descending
+  const sortedActivities = recentActivities
+    .sort((a, b) => b.time - a.time)
+    .slice(0, 4);
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative page-enter">
       {/* Toast Notification */}
       {toast && (
         <div className="fixed bottom-5 right-5 z-50 toast-light px-4 py-3 rounded-xl flex items-center space-x-2.5 animate-bounce">
           <div className="w-5 h-5 rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 flex items-center justify-center">
-            <Check className="w-3 h-3 text-white" strokeWidth={3} />
+            <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />
           </div>
           <span className="text-sm font-semibold text-gray-700">{toast}</span>
         </div>
@@ -283,13 +325,6 @@ const Dashboard = () => {
           >
             <Upload className="w-4 h-4 mr-2" />
             Bulk CSV
-          </button>
-          <button
-            onClick={() => document.getElementById('quick-original-url')?.focus()}
-            className="flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-bold text-white btn-primary cursor-pointer"
-          >
-            <Plus className="w-4 h-4 mr-2" />
-            Shorten URL
           </button>
         </div>
       </div>
@@ -349,155 +384,235 @@ const Dashboard = () => {
       </div>
 
       {/* Stats Summary Bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <div className="glass-light p-4 rounded-2xl flex items-center space-x-3 glow-border-light">
-          <div className="p-2.5 bg-indigo-50 rounded-xl">
-            <LinkIcon className="w-5 h-5 text-indigo-500" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-5 mb-8">
+        <div className="glass-light p-5 rounded-2xl flex items-center space-x-4 glow-border-light">
+          <div className="p-3 bg-indigo-50 rounded-xl">
+            <LinkIcon className="w-6 h-6 text-indigo-500" />
           </div>
           <div>
-            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Links</div>
-            <div className="text-xl font-extrabold text-gray-900">{urls.length}</div>
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total URLs</div>
+            <div className="text-2xl font-black text-gray-900">{totalUrls}</div>
           </div>
         </div>
-        <div className="glass-light p-4 rounded-2xl flex items-center space-x-3 glow-border-light">
-          <div className="p-2.5 bg-pink-50 rounded-xl">
-            <MousePointerClick className="w-5 h-5 text-pink-500" />
+
+        <div className="glass-light p-5 rounded-2xl flex items-center space-x-4 glow-border-light">
+          <div className="p-3 bg-pink-50 rounded-xl">
+            <MousePointerClick className="w-6 h-6 text-pink-500" />
           </div>
           <div>
             <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total Clicks</div>
-            <div className="text-xl font-extrabold text-gray-900">{urls.reduce((acc, curr) => acc + curr.click_count, 0)}</div>
+            <div className="text-2xl font-black text-gray-900">{totalClicks}</div>
           </div>
         </div>
-        <div className="glass-light p-4 rounded-2xl glow-border-light">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+
+        <div className="glass-light p-5 rounded-2xl flex items-center space-x-4 glow-border-light">
+          <div className="p-3 bg-amber-50 rounded-xl">
+            <Award className="w-6 h-6 text-amber-500" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Most Clicked Link</div>
+            {mostClicked ? (
+              <div className="truncate">
+                <a 
+                  href={`${backendUrl}/r/${mostClicked.short_code}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-base font-extrabold text-indigo-600 hover:text-indigo-500 flex items-center gap-1 group"
+                >
+                  <span className="truncate">{mostClicked.short_code}</span>
+                  <ArrowUpRight className="w-3.5 h-3.5 opacity-50 group-hover:opacity-100 shrink-0" />
+                </a>
+                <div className="text-[11px] text-gray-400">{mostClicked.click_count} clicks</div>
+              </div>
+            ) : (
+              <div className="text-sm font-bold text-gray-500">None</div>
+            )}
+          </div>
+        </div>
+
+        <div className="glass-light p-5 rounded-2xl glow-border-light flex flex-col justify-between">
+          <div className="relative flex-grow flex items-center">
+            <Search className="w-4 h-4 absolute left-3.5 text-gray-400" />
             <input
               type="text"
               placeholder="Search links..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-transparent pl-10 pr-4 py-2 text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
+              className="w-full bg-transparent pl-10 pr-2 py-1.5 text-sm text-gray-800 placeholder-gray-400 focus:outline-none"
             />
           </div>
         </div>
       </div>
 
-      {/* Links Grid */}
-      {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      ) : filteredUrls.length === 0 ? (
-        <div className="glass-light p-16 rounded-2xl text-center flex flex-col items-center justify-center">
-          <div className="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 mb-4">
-            <LinkIcon className="w-6 h-6" />
-          </div>
-          <h3 className="text-lg font-bold text-gray-900">No links found</h3>
-          <p className="text-gray-500 text-sm mt-1 max-w-sm">
-            {searchTerm ? "We couldn't find any URLs matching your search." : "Shorten your first URL to get started!"}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 gap-4">
-          {filteredUrls.map((url) => {
-            const shortLink = `${backendUrl}/r/${url.short_code}`;
-            const isExpired = url.expiry_date && new Date(url.expiry_date) < new Date();
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+        {/* Links Table Layout */}
+        <div className="lg:col-span-3 space-y-4">
+          <div className="glass-light rounded-2xl overflow-hidden shadow-sm border border-gray-100">
+            <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-100 flex justify-between items-center">
+              <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+                <LinkIcon className="w-4 h-4 text-indigo-500" />
+                Shortened URL Repository
+              </h2>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full pill-indigo">
+                {filteredUrls.length} Active links
+              </span>
+            </div>
 
-            return (
-              <div 
-                key={url.id} 
-                className="glass-card-light p-5 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-5 glow-border-light"
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <a 
-                      href={shortLink} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="text-lg font-bold text-indigo-600 hover:text-indigo-500 transition-colors flex items-center gap-1.5 group"
-                    >
-                      {url.short_code}
-                      <ArrowUpRight className="w-3.5 h-3.5 opacity-50 group-hover:opacity-100 transition-opacity" />
-                    </a>
-                    {url.custom_alias && (
-                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full pill-indigo">
-                        Alias
-                      </span>
-                    )}
-                    {isExpired && (
-                      <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full pill-rose">
-                        Expired
-                      </span>
-                    )}
-                  </div>
-                  <div className="text-sm font-medium text-gray-500 truncate max-w-xl mb-1">
-                    {url.original_url}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-400">
-                    <span className="flex items-center gap-1">
-                      <Calendar className="w-3.5 h-3.5" />
-                      Created {new Date(url.created_at).toLocaleDateString()}
-                    </span>
-                    {url.expiry_date && (
-                      <span className={`flex items-center gap-1 ${isExpired ? 'text-rose-500' : ''}`}>
-                        <Clock className="w-3.5 h-3.5" />
-                        Expires {new Date(url.expiry_date).toLocaleDateString()}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 self-end md:self-center">
-                  {/* Click Badge */}
-                  <div className="text-center px-4 py-2 stat-badge rounded-xl">
-                    <div className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">Clicks</div>
-                    <div className="text-base font-extrabold text-gray-900">{url.click_count}</div>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={() => handleCopy(url.short_code)}
-                      title="Copy Short URL"
-                      className="p-2.5 rounded-xl bg-white/60 border border-gray-200 hover:border-indigo-300 text-gray-500 hover:text-indigo-600 transition-all cursor-pointer hover:shadow-sm"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => setActiveQrCode(url.qr_code)}
-                      title="View QR Code"
-                      className="p-2.5 rounded-xl bg-white/60 border border-gray-200 hover:border-indigo-300 text-gray-500 hover:text-indigo-600 transition-all cursor-pointer hover:shadow-sm"
-                    >
-                      <QrCode className="w-4 h-4" />
-                    </button>
-                    <Link
-                      to={`/analytics/${url.short_code}`}
-                      title="View Analytics"
-                      className="p-2.5 rounded-xl bg-white/60 border border-gray-200 hover:border-indigo-300 text-gray-500 hover:text-indigo-600 transition-all hover:shadow-sm"
-                    >
-                      <BarChart3 className="w-4 h-4" />
-                    </Link>
-                    <button
-                      onClick={() => openEditModal(url)}
-                      title="Edit URL"
-                      className="p-2.5 rounded-xl bg-white/60 border border-gray-200 hover:border-amber-300 text-gray-500 hover:text-amber-600 transition-all cursor-pointer hover:shadow-sm"
-                    >
-                      <Edit3 className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(url.id)}
-                      title="Delete URL"
-                      className="p-2.5 rounded-xl bg-white/60 border border-gray-200 hover:border-rose-300 text-gray-500 hover:text-rose-500 transition-all cursor-pointer hover:shadow-sm"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
+            {loading ? (
+              <div className="flex justify-center py-20">
+                <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
               </div>
-            );
-          })}
+            ) : filteredUrls.length === 0 ? (
+              <div className="p-16 text-center flex flex-col items-center justify-center">
+                <div className="w-12 h-12 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 mb-4">
+                  <LinkIcon className="w-5 h-5" />
+                </div>
+                <h3 className="text-sm font-bold text-gray-900">No links found</h3>
+                <p className="text-gray-500 text-xs mt-1 max-w-sm">
+                  {searchTerm ? "No matching shortened links found." : "Shorten your first URL to begin tracking performance metrics."}
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-[10px] font-bold text-gray-400 uppercase tracking-wider bg-gray-50/20">
+                      <th className="py-3 px-6">Original Destination</th>
+                      <th className="py-3 px-6">Short Link</th>
+                      <th className="py-3 px-6 text-center">Clicks</th>
+                      <th className="py-3 px-6">Dates</th>
+                      <th className="py-3 px-6 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 text-sm">
+                    {filteredUrls.map((url) => {
+                      const shortLink = `${backendUrl}/r/${url.short_code}`;
+                      const isExpired = url.expiry_date && new Date(url.expiry_date) < new Date();
+
+                      return (
+                        <tr key={url.id} className="hover:bg-gray-50/40 transition-colors">
+                          <td className="py-4 px-6 max-w-[240px]">
+                            <div className="font-semibold text-gray-800 truncate" title={url.original_url}>
+                              {url.original_url}
+                            </div>
+                            {url.custom_alias && (
+                              <span className="mt-1 inline-block text-[9px] uppercase font-extrabold tracking-wider px-1.5 py-0.5 rounded pill-indigo">
+                                Alias: {url.custom_alias}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-4 px-6">
+                            <a 
+                              href={shortLink} 
+                              target="_blank" 
+                              rel="noopener noreferrer" 
+                              className="text-indigo-600 hover:text-indigo-500 font-bold flex items-center gap-1.5 group w-fit"
+                            >
+                              <span>{url.short_code}</span>
+                              <ArrowUpRight className="w-3.5 h-3.5 opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
+                            </a>
+                          </td>
+                          <td className="py-4 px-6 text-center">
+                            <span className="font-black text-gray-850 px-2 py-1 rounded bg-gray-100/60 text-xs">
+                              {url.click_count}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6 text-xs text-gray-400 space-y-1">
+                            <div className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3 text-gray-300" />
+                              <span>Cr: {new Date(url.created_at).toLocaleDateString()}</span>
+                            </div>
+                            {url.last_visited ? (
+                              <div className="flex items-center gap-1 text-teal-650">
+                                <Clock className="w-3 h-3 text-teal-400" />
+                                <span>Lt: {new Date(url.last_visited).toLocaleDateString()}</span>
+                              </div>
+                            ) : (
+                              <div className="text-[10px] text-gray-300 italic">No visits yet</div>
+                            )}
+                          </td>
+                          <td className="py-4 px-6 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                onClick={() => handleCopy(url.short_code)}
+                                title="Copy Short URL"
+                                className="p-2 rounded-lg bg-white/50 border border-gray-100 hover:border-indigo-300 text-gray-500 hover:text-indigo-600 transition-all cursor-pointer"
+                              >
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => setActiveQrCode(url.qr_code)}
+                                title="View QR Code"
+                                className="p-2 rounded-lg bg-white/50 border border-gray-100 hover:border-indigo-300 text-gray-500 hover:text-indigo-600 transition-all cursor-pointer"
+                              >
+                                <QrCode className="w-3.5 h-3.5" />
+                              </button>
+                              <Link
+                                to={`/analytics/${url.short_code}`}
+                                title="View Analytics"
+                                className="p-2 rounded-lg bg-white/50 border border-gray-100 hover:border-indigo-300 text-gray-500 hover:text-indigo-600 transition-all"
+                              >
+                                <BarChart3 className="w-3.5 h-3.5" />
+                              </Link>
+                              <button
+                                onClick={() => openEditModal(url)}
+                                title="Edit URL"
+                                className="p-2 rounded-lg bg-white/50 border border-gray-100 hover:border-amber-300 text-gray-500 hover:text-amber-600 transition-all cursor-pointer"
+                              >
+                                <Edit3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(url.id)}
+                                title="Delete URL"
+                                className="p-2 rounded-lg bg-white/50 border border-gray-100 hover:border-rose-300 text-gray-500 hover:text-rose-500 transition-all cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+
+        {/* Sidebar: Recent Activity */}
+        <div className="space-y-4">
+          <div className="glass-light p-5 rounded-2xl glow-border-light border border-gray-100">
+            <h2 className="text-sm font-bold text-gray-950 mb-4 flex items-center gap-2">
+              <Activity className="w-4 h-4 text-pink-500 animate-pulse" />
+              Recent Activity
+            </h2>
+
+            {sortedActivities.length === 0 ? (
+              <div className="text-center py-8 text-xs text-gray-400 italic">
+                No recent activity logs available.
+              </div>
+            ) : (
+              <div className="space-y-4 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-gray-100">
+                {sortedActivities.map((act, idx) => (
+                  <div key={idx} className="flex gap-3 items-start relative pl-4">
+                    <div className={`w-2.5 h-2.5 rounded-full absolute left-[3px] top-1.5 border-2 border-white ${
+                      act.type === 'create' ? 'bg-indigo-500 shadow-indigo-500/30' : 'bg-teal-500 shadow-teal-500/30'
+                    }`}></div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-gray-900">{act.label}</div>
+                      <div className="text-[10px] text-gray-400 truncate max-w-[160px]">{act.description}</div>
+                      <div className="text-[9px] text-gray-350 mt-0.5">
+                        {act.time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* QR Code Preview Modal */}
       {activeQrCode && (

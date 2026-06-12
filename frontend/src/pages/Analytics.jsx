@@ -8,7 +8,7 @@ import {
 import { 
   ArrowLeft, Calendar, Monitor, Smartphone, Tablet, 
   Tv, Compass, Copy, Check, Share2, AlertCircle, Clock, BarChart3,
-  MousePointerClick, Globe, ArrowUpRight
+  MousePointerClick, Globe, ArrowUpRight, Mail, MessageCircle
 } from 'lucide-react';
 
 const COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f59e0b', '#8b5cf6'];
@@ -19,22 +19,32 @@ const Analytics = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [toast, setToast] = useState('');
+  const [showShareMenu, setShowShareMenu] = useState(false);
 
-  const fetchAnalytics = async () => {
-    setLoading(true);
+  const fetchAnalytics = async (isBackground = false) => {
+    if (!isBackground) setLoading(true);
     setError('');
     try {
       const response = await API.get(`/analytics/${shortCode}`);
       setData(response.data.data);
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to load analytics data');
+      if (!isBackground) {
+        setError(err.response?.data?.error || 'Failed to load analytics data');
+      }
     } finally {
-      setLoading(false);
+      if (!isBackground) setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchAnalytics();
+
+    // Poll for analytics updates every 5 seconds in the background
+    const interval = setInterval(() => {
+      fetchAnalytics(true);
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, [shortCode]);
 
   const showToast = (message) => {
@@ -53,6 +63,21 @@ const Analytics = () => {
     const link = `${backendUrl}/r/${code}`;
     navigator.clipboard.writeText(link);
     showToast('Shortened link copied!');
+  };
+
+  const shareViaWhatsApp = () => {
+    const url = window.location.href;
+    const text = `Check out the analytics for this link: ${url}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank');
+    setShowShareMenu(false);
+  };
+
+  const shareViaEmail = () => {
+    const url = window.location.href;
+    const subject = `Clixora Analytics - ${shortCode}`;
+    const body = `Here are the analytics for the shortened link:\n\n${url}`;
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
+    setShowShareMenu(false);
   };
 
   if (loading) {
@@ -137,7 +162,7 @@ const Analytics = () => {
       </div>
 
       {/* URL Overview Card */}
-      <div className="glass-light p-6 rounded-2xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 glow-border-light">
+      <div className="glass-light p-6 rounded-2xl mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6 glow-border-light" style={{ backdropFilter: 'none', WebkitBackdropFilter: 'none', backgroundColor: 'rgba(255, 255, 255, 0.95)' }}>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 mb-2">
             <h1 className="text-2xl font-extrabold text-gray-900 tracking-tight">{url.short_code}</h1>
@@ -173,13 +198,41 @@ const Analytics = () => {
           >
             <Copy className="w-4 h-4" />
           </button>
-          <button
-            onClick={copyPublicAnalyticsLink}
-            className="flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold btn-secondary cursor-pointer"
-          >
-            <Share2 className="w-4 h-4 mr-2" />
-            Share Analytics
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setShowShareMenu(!showShareMenu)}
+              className="flex items-center justify-center px-4 py-2.5 rounded-xl text-sm font-semibold btn-secondary cursor-pointer"
+            >
+              <Share2 className="w-4 h-4 mr-2" />
+              Share Analytics
+            </button>
+
+            {showShareMenu && (
+              <div className="absolute right-0 top-full mt-2 w-56 glass-light rounded-xl shadow-xl border border-gray-200 overflow-hidden z-50">
+                <button
+                  onClick={() => { copyPublicAnalyticsLink(); setShowShareMenu(false); }}
+                  className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 hover:bg-indigo-50 hover:text-indigo-600 transition-colors cursor-pointer"
+                >
+                  <Copy className="w-4 h-4 mr-3 text-indigo-500" />
+                  Copy Link
+                </button>
+                <button
+                  onClick={shareViaWhatsApp}
+                  className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors cursor-pointer"
+                >
+                  <MessageCircle className="w-4 h-4 mr-3 text-emerald-500" />
+                  Share via WhatsApp
+                </button>
+                <button
+                  onClick={shareViaEmail}
+                  className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 hover:bg-pink-50 hover:text-pink-600 transition-colors cursor-pointer"
+                >
+                  <Mail className="w-4 h-4 mr-3 text-pink-500" />
+                  Share via Email
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

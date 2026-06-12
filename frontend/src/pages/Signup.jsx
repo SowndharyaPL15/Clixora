@@ -1,35 +1,28 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import API from '../services/api';
+import { UserPlus, Mail, Lock, User, AlertCircle, Zap, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 import { useAuth } from '../context/AuthContext';
-import { UserPlus, Mail, Lock, User, AlertCircle, Zap, ArrowRight } from 'lucide-react';
 
-const Register = () => {
-  const { register } = useAuth();
+const Signup = () => {
   const navigate = useNavigate();
+  const { loginWithGoogle } = useAuth();
 
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    if (name.trim().length < 2) {
-      setError('Name must be at least 2 characters long');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long');
-      return;
-    }
-
+  const handleGoogleSuccess = async (credentialResponse) => {
     setLoading(true);
-    const result = await register(name, email, password);
+    setError('');
+    const result = await loginWithGoogle(credentialResponse.credential);
     setLoading(false);
-
+    
     if (result.success) {
       navigate('/dashboard');
     } else {
@@ -37,11 +30,47 @@ const Register = () => {
     }
   };
 
+  const handleGoogleError = () => {
+    setError('Google Sign-In failed. Please try again.');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess(false);
+
+    if (name.trim().length < 2) {
+      setError('Name must be at least 2 characters long.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await API.post('/auth/register', { name, email, password });
+      setSuccess(true);
+      setLoading(false);
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    } catch (err) {
+      setLoading(false);
+      setError(err.response?.data?.error || 'Registration failed. Please try again.');
+    }
+  };
+
   return (
     <div className="min-h-screen flex relative overflow-hidden">
       {/* Left Panel — Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-teal-500 via-indigo-600 to-purple-600 relative items-center justify-center p-12 overflow-hidden">
-        {/* Decorative circles */}
         <div className="absolute top-[-80px] right-[-80px] w-[300px] h-[300px] rounded-full bg-white/5 blur-xl"></div>
         <div className="absolute bottom-[-120px] left-[-60px] w-[400px] h-[400px] rounded-full bg-white/5 blur-xl"></div>
         <div className="absolute top-[25%] left-[15%] w-[200px] h-[200px] rounded-full border border-white/10"></div>
@@ -55,10 +84,9 @@ const Register = () => {
             Get Started Free
           </h1>
           <p className="text-lg text-white/75 font-medium leading-relaxed mb-8">
-            Join thousands using LinkPulse to manage, track, and optimize their shortened links.
+            Join thousands using Clixora to manage, track, and optimize their shortened links.
           </p>
 
-          {/* Stats */}
           <div className="grid grid-cols-3 gap-4">
             <div className="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4">
               <div className="text-2xl font-extrabold text-white">∞</div>
@@ -76,16 +104,15 @@ const Register = () => {
         </div>
       </div>
 
-      {/* Right Panel — Register Form */}
-      <div className="flex-1 flex flex-col justify-center items-center px-6 sm:px-12 lg:px-16 py-12 bg-[#FAFAF8] relative">
-        {/* Mobile-only brand */}
+      {/* Right Panel — Signup Form */}
+      <div className="flex-1 flex flex-col justify-center items-center px-6 sm:px-12 lg:px-16 py-12 bg-transparent relative">
         <div className="lg:hidden flex items-center space-x-2.5 mb-8">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
             <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
           </div>
           <span className="text-2xl font-extrabold tracking-tight">
-            <span className="text-gray-900">Link</span>
-            <span className="gradient-text-light">Pulse</span>
+            <span className="text-gray-900">Clix</span>
+            <span className="gradient-text-light">ora</span>
           </span>
         </div>
 
@@ -103,9 +130,18 @@ const Register = () => {
 
           <div className="glass-light p-8 rounded-2xl glow-border-light">
             {error && (
-              <div className="mb-5 bg-rose-50 border border-rose-200 rounded-xl p-3.5 flex items-start space-x-2.5">
+              <div className="mb-5 bg-rose-50 border border-rose-200 rounded-xl p-3.5 flex items-start space-x-2.5 animate-pulse">
                 <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
                 <span className="text-sm text-rose-700 font-medium">{error}</span>
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-5 bg-emerald-50 border border-emerald-200 rounded-xl p-3.5 flex items-start space-x-2.5">
+                <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5" />
+                <span className="text-sm text-emerald-700 font-medium">
+                  Registration successful! Redirecting to login...
+                </span>
               </div>
             )}
 
@@ -174,10 +210,31 @@ const Register = () => {
                 </div>
               </div>
 
+              <div>
+                <label htmlFor="confirmPassword" className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                  Confirm Password
+                </label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <Lock className="h-4 w-4 text-gray-400" />
+                  </div>
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    className="input-light block w-full pl-10 pr-3 py-2.5 text-sm"
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+
               <div className="pt-1">
                 <button
                   type="submit"
-                  disabled={loading}
+                  disabled={loading || success}
                   className="w-full flex justify-center items-center py-2.5 px-4 rounded-xl text-sm font-semibold btn-primary disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   {loading ? (
@@ -191,6 +248,24 @@ const Register = () => {
                 </button>
               </div>
             </form>
+
+            <div className="flex items-center my-6">
+              <div className="flex-grow border-t border-gray-200"></div>
+              <span className="px-3 text-xs text-gray-500 uppercase tracking-wider font-semibold">Or continue with</span>
+              <div className="flex-grow border-t border-gray-200"></div>
+            </div>
+
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                useOneTap
+                theme="outline"
+                size="large"
+                text="continue_with"
+                shape="rectangular"
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -198,4 +273,4 @@ const Register = () => {
   );
 };
 
-export default Register;
+export default Signup;

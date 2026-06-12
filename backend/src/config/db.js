@@ -23,7 +23,7 @@ if (isPostgres) {
     fs.mkdirSync(dataDir, { recursive: true });
   }
 
-  const dbPath = path.join(dataDir, 'linkpulse.db');
+  const dbPath = path.join(dataDir, 'clixora.db');
   sqlite = new Database(dbPath);
 
   // Enable WAL mode for better performance

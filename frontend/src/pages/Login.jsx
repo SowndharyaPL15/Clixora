@@ -2,15 +2,33 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { LogIn, Mail, Lock, AlertCircle, Zap, ArrowRight } from 'lucide-react';
+import { GoogleLogin } from '@react-oauth/google';
 
 const Login = () => {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  const handleGoogleSuccess = async (credentialResponse) => {
+    setLoading(true);
+    setError('');
+    const result = await loginWithGoogle(credentialResponse.credential);
+    setLoading(false);
+    
+    if (result.success) {
+      navigate('/dashboard');
+    } else {
+      setError(result.error);
+    }
+  };
+
+  const handleGoogleError = () => {
+    setError('Google Sign-In failed. Please try again.');
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,7 +60,7 @@ const Login = () => {
             <Zap className="w-8 h-8 text-white" strokeWidth={2.5} />
           </div>
           <h1 className="text-4xl font-extrabold text-white tracking-tight mb-4">
-            LinkPulse
+            Clixora
           </h1>
           <p className="text-lg text-white/75 font-medium leading-relaxed mb-8">
             Shorten links, generate QR codes, and track detailed analytics — all from one beautiful dashboard.
@@ -67,15 +85,15 @@ const Login = () => {
       </div>
 
       {/* Right Panel — Login Form */}
-      <div className="flex-1 flex flex-col justify-center items-center px-6 sm:px-12 lg:px-16 py-12 bg-[#FAFAF8] relative">
+      <div className="flex-1 flex flex-col justify-center items-center px-6 sm:px-12 lg:px-16 py-12 bg-transparent relative">
         {/* Mobile-only brand */}
         <div className="lg:hidden flex items-center space-x-2.5 mb-8">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
             <Zap className="w-5 h-5 text-white" strokeWidth={2.5} />
           </div>
           <span className="text-2xl font-extrabold tracking-tight">
-            <span className="text-gray-900">Link</span>
-            <span className="gradient-text-light">Pulse</span>
+            <span className="text-gray-900">Clix</span>
+            <span className="gradient-text-light">ora</span>
           </span>
         </div>
 
@@ -85,7 +103,7 @@ const Login = () => {
           </h2>
           <p className="text-gray-500 text-sm mb-8">
             Don't have an account?{' '}
-            <Link to="/register" className="font-semibold text-indigo-600 hover:text-indigo-500 transition-colors">
+            <Link to="/signup" className="font-semibold text-indigo-600 hover:text-indigo-500 transition-colors">
               Create one free
               <ArrowRight className="w-3.5 h-3.5 inline ml-0.5" />
             </Link>
@@ -161,6 +179,24 @@ const Login = () => {
                 </button>
               </div>
             </form>
+
+            <div className="flex items-center my-6">
+              <div className="flex-grow border-t border-gray-200"></div>
+              <span className="px-3 text-xs text-gray-500 uppercase tracking-wider font-semibold">Or continue with</span>
+              <div className="flex-grow border-t border-gray-200"></div>
+            </div>
+
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={handleGoogleError}
+                useOneTap
+                theme="outline"
+                size="large"
+                text="continue_with"
+                shape="rectangular"
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -76,7 +76,10 @@ const getUserUrls = async (req, res, next) => {
 
   try {
     const result = await db.query(
-      'SELECT * FROM urls WHERE user_id = $1 ORDER BY created_at DESC',
+      `SELECT u.*, (SELECT MAX(visited_at) FROM visits v WHERE v.url_id = u.id) as last_visited
+       FROM urls u
+       WHERE u.user_id = $1
+       ORDER BY u.created_at DESC`,
       [userId]
     );
 
