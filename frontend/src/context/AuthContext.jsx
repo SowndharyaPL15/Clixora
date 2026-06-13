@@ -59,7 +59,6 @@ export const AuthProvider = ({ children }) => {
 
   const loginWithGoogle = async (credential) => {
     try {
-      console.log('Google Auth: Sending to API URL:', import.meta.env.VITE_API_URL);
       const response = await API.post('/auth/google', { credential });
       const { token, user: userData } = response.data;
       
@@ -68,16 +67,9 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       return { success: true };
     } catch (error) {
-      console.error('Google Auth Error Details:', {
-        status: error.response?.status,
-        data: error.response?.data,
-        message: error.message,
-        code: error.code,
-      });
-      const detail = error.response?.data?.error || error.message || 'Google authentication failed. Please try again.';
       return {
         success: false,
-        error: `Google auth failed: ${detail} (${error.response?.status || 'Network Error'})`,
+        error: error.response?.data?.error || 'Google authentication failed. Please try again.',
       };
     }
   };
