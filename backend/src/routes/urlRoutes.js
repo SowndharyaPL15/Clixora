@@ -6,9 +6,13 @@ const {
   updateUrl,
   deleteUrl,
   createBulkUrls,
+  unlockUrl,
 } = require('../controllers/urlController');
 const { protect } = require('../middlewares/authMiddleware');
 const { validateUrl } = require('../middlewares/validationMiddleware');
+
+// Public unlock route for password-protected links
+router.post('/unlock/:shortCode', unlockUrl);
 
 // Mount routes
 router.post('/bulk', protect, createBulkUrls);

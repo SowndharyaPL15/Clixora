@@ -4,7 +4,8 @@ import API from '../services/api';
 import { 
   Plus, Copy, Check, Trash2, Edit3, ExternalLink, BarChart3, 
   Calendar, QrCode, Search, X, Link as LinkIcon, Upload, Zap, 
-  MousePointerClick, Clock, ArrowUpRight, Award, Activity 
+  MousePointerClick, Clock, ArrowUpRight, Award, Activity,
+  Pause, Play, Lock, Unlock
 } from 'lucide-react';
 
 const Dashboard = () => {
@@ -29,10 +30,27 @@ const Dashboard = () => {
   const [originalUrl, setOriginalUrl] = useState('');
   const [customAlias, setCustomAlias] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
+  const [password, setPassword] = useState('');
+  const [maxClicks, setMaxClicks] = useState('');
+  const [category, setCategory] = useState('General');
+  const [notes, setNotes] = useState('');
+  const [isActive, setIsActive] = useState(true);
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('All');
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   // Active QR Code state
   const [activeQrCode, setActiveQrCode] = useState(null);
   const [quickError, setQuickError] = useState('');
+
+  // Expandable Summaries State
+  const [expandedSummaries, setExpandedSummaries] = useState({});
+
+  const toggleSummary = (id) => {
+    setExpandedSummaries(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  };
 
   const fetchUrls = async (isBackground = false) => {
     if (!isBackground) setLoading(true);
@@ -71,6 +89,17 @@ const Dashboard = () => {
     showToast('Link copied to clipboard!');
   };
 
+  const handleToggleActive = async (url) => {
+    try {
+      const isCurrentlyActive = url.is_active === true || url.is_active === 1 || url.is_active === '1';
+      await API.put(`/urls/${url.id}`, { is_active: !isCurrentlyActive });
+      showToast(`Link ${!isCurrentlyActive ? 'activated' : 'paused'} successfully!`);
+      fetchUrls();
+    } catch (err) {
+      showToast('Failed to update link status');
+    }
+  };
+
   const handleQuickCreate = async (e) => {
     e.preventDefault();
     setQuickError('');
@@ -83,6 +112,10 @@ const Dashboard = () => {
         original_url: url,
         custom_alias: customAlias || undefined,
         expiry_date: expiryDate || undefined,
+        password: password || undefined,
+        max_clicks: maxClicks || undefined,
+        category: category || 'General',
+        notes: notes || undefined,
       };
       await API.post('/urls', payload);
       showToast('Link shortened successfully!');
@@ -90,6 +123,11 @@ const Dashboard = () => {
       setOriginalUrl('');
       setCustomAlias('');
       setExpiryDate('');
+      setPassword('');
+      setMaxClicks('');
+      setCategory('General');
+      setNotes('');
+      setShowAdvanced(false);
       
       fetchUrls();
     } catch (err) {
@@ -111,6 +149,10 @@ const Dashboard = () => {
           original_url: url,
           custom_alias: customAlias || undefined,
           expiry_date: expiryDate || undefined,
+          password: password || undefined,
+          max_clicks: maxClicks || undefined,
+          category: category || 'General',
+          notes: notes || undefined,
         };
         await API.post('/urls', payload);
         showToast('Link shortened successfully!');
@@ -122,6 +164,11 @@ const Dashboard = () => {
         const payload = {
           original_url: url,
           expiry_date: expiryDate || undefined,
+          password: password === '' ? undefined : password,
+          max_clicks: maxClicks || null,
+          is_active: isActive,
+          category: category || 'General',
+          notes: notes || null,
         };
         await API.put(`/urls/${currentUrlId}`, payload);
         showToast('Link updated successfully!');
@@ -239,6 +286,11 @@ const Dashboard = () => {
     setOriginalUrl(url.original_url);
     setCustomAlias(url.custom_alias || '');
     setExpiryDate(url.expiry_date ? new Date(url.expiry_date).toISOString().split('T')[0] : '');
+    setPassword('');
+    setMaxClicks(url.max_clicks !== null && url.max_clicks !== undefined ? url.max_clicks : '');
+    setCategory(url.category || 'General');
+    setNotes(url.notes || '');
+    setIsActive(url.is_active === true || url.is_active === 1 || url.is_active === '1');
     setError('');
     setIsModalOpen(true);
   };
@@ -249,16 +301,23 @@ const Dashboard = () => {
     setOriginalUrl('');
     setCustomAlias('');
     setExpiryDate('');
+    setPassword('');
+    setMaxClicks('');
+    setCategory('General');
+    setNotes('');
+    setIsActive(true);
   };
 
   // Filter URLs
   const filteredUrls = urls.filter((url) => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       url.original_url.toLowerCase().includes(searchLower) ||
       url.short_code.toLowerCase().includes(searchLower) ||
       (url.custom_alias && url.custom_alias.toLowerCase().includes(searchLower))
     );
+    const matchesCategory = selectedCategoryFilter === 'All' || url.category === selectedCategoryFilter;
+    return matchesSearch && matchesCategory;
   });
 
   const backendUrl = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
@@ -381,6 +440,74 @@ const Dashboard = () => {
             </button>
           </div>
         </form>
+
+        {/* Expandable Advanced Options */}
+        <div className="mt-4 border-t border-gray-150/50 dark:border-white/5 pt-3">
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="text-xs font-bold text-indigo-500 hover:text-indigo-600 transition-colors flex items-center gap-1 cursor-pointer"
+          >
+            {showAdvanced ? 'Hide Advanced Options ▴' : 'Show Advanced Options (Password, Limits, Categories, Notes) ▾'}
+          </button>
+          
+          {showAdvanced && (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4 animate-fadeIn">
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
+                  Access Password
+                </label>
+                <input
+                  type="password"
+                  placeholder="Set lock passcode"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input-light w-full px-3 py-2 text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
+                  Click Limit
+                </label>
+                <input
+                  type="number"
+                  placeholder="Max clicks (e.g. 50)"
+                  value={maxClicks}
+                  onChange={(e) => setMaxClicks(e.target.value)}
+                  className="input-light w-full px-3 py-2 text-xs"
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
+                  Link Category
+                </label>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value)}
+                  className="input-light w-full px-3 py-2 text-xs text-gray-650"
+                >
+                  <option value="General">General</option>
+                  <option value="Work">Work</option>
+                  <option value="College">College</option>
+                  <option value="Personal">Personal</option>
+                  <option value="Marketing">Marketing</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1">
+                  Description / Notes
+                </label>
+                <input
+                  type="text"
+                  placeholder="Shared with team..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="input-light w-full px-3 py-2 text-xs"
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Stats Summary Bar */}
@@ -448,14 +575,26 @@ const Dashboard = () => {
         {/* Links Table Layout */}
         <div className="lg:col-span-3 space-y-4">
           <div className="glass-light rounded-2xl overflow-hidden shadow-sm border border-gray-100">
-            <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-100 flex justify-between items-center">
-              <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+            <div className="px-6 py-4 bg-gray-50/50 dark:bg-white/5 border-b border-gray-100 dark:border-white/10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
                 <LinkIcon className="w-4 h-4 text-indigo-500" />
                 Shortened URL Repository
               </h2>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full pill-indigo">
-                {filteredUrls.length} Active links
-              </span>
+              <div className="flex flex-wrap gap-1.5">
+                {['All', 'Work', 'College', 'Personal', 'Marketing', 'General'].map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategoryFilter(cat)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                      selectedCategoryFilter === cat
+                        ? 'bg-indigo-500 border-indigo-500 text-white shadow-sm shadow-indigo-500/20'
+                        : 'bg-white dark:bg-white/5 border-gray-250 dark:border-white/10 text-gray-500 hover:bg-gray-50 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {loading ? (
@@ -488,34 +627,98 @@ const Dashboard = () => {
                     {filteredUrls.map((url) => {
                       const shortLink = `${backendUrl}/r/${url.short_code}`;
                       const isExpired = url.expiry_date && new Date(url.expiry_date) < new Date();
+                      const isPaused = !url.is_active || url.is_active === 0 || url.is_active === '0';
+                      const limitReached = url.max_clicks !== null && url.click_count >= url.max_clicks;
 
                       return (
                         <tr key={url.id} className="hover:bg-gray-50/40 transition-colors">
-                          <td className="py-4 px-6 max-w-[240px]">
-                            <div className="font-semibold text-gray-800 truncate" title={url.original_url}>
+                          <td className="py-4 px-6 max-w-[280px]">
+                            <div className="font-semibold text-gray-800 dark:text-gray-205 truncate" title={url.original_url}>
                               {url.original_url}
                             </div>
-                            {url.custom_alias && (
-                              <span className="mt-1 inline-block text-[9px] uppercase font-extrabold tracking-wider px-1.5 py-0.5 rounded pill-indigo">
-                                Alias: {url.custom_alias}
-                              </span>
+                            <div className="flex flex-wrap gap-1.5 mt-1">
+                              {url.custom_alias && (
+                                <span className="inline-block text-[9px] uppercase font-extrabold tracking-wider px-1.5 py-0.5 rounded pill-indigo">
+                                  Alias: {url.custom_alias}
+                                </span>
+                              )}
+                              {url.category && url.category !== 'General' && (
+                                <span className="inline-block text-[9px] uppercase font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-300">
+                                  {url.category}
+                                </span>
+                              )}
+                              {isPaused ? (
+                                <span className="inline-block text-[9px] uppercase font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-955/40 text-amber-800 dark:text-amber-350">
+                                  Paused
+                                </span>
+                              ) : limitReached ? (
+                                <span className="inline-block text-[9px] uppercase font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-955/40 text-rose-800 dark:text-rose-350">
+                                  Limit Reached
+                                </span>
+                              ) : isExpired ? (
+                                <span className="inline-block text-[9px] uppercase font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-rose-100 dark:bg-rose-955/40 text-rose-800 dark:text-rose-350">
+                                  Expired
+                                </span>
+                              ) : (
+                                <span className="inline-block text-[9px] uppercase font-extrabold tracking-wider px-1.5 py-0.5 rounded bg-emerald-100 dark:bg-emerald-955/40 text-emerald-800 dark:text-emerald-300">
+                                  Active
+                                </span>
+                              )}
+                            </div>
+
+                            {/* AI Summary Section */}
+                            {url.ai_summary && (
+                              <div 
+                                onClick={() => toggleSummary(url.id)}
+                                className="mt-3 pl-2.5 border-l-2 border-indigo-500 cursor-pointer group"
+                                title={expandedSummaries[url.id] ? "Click to collapse" : "Click to expand"}
+                              >
+                                <div className="text-[11px] font-black text-indigo-600 uppercase tracking-wider mb-0.5 group-hover:text-indigo-700 transition-colors">✨ AI Insight</div>
+                                <div className={`text-xs text-gray-800 font-medium leading-relaxed ${expandedSummaries[url.id] ? '' : 'line-clamp-2'}`}>
+                                  {url.ai_summary}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Notes Section */}
+                            {url.notes && (
+                              <div className="mt-2.5 pl-2.5 border-l-2 border-amber-400">
+                                <div className="text-[11px] font-black text-amber-600 uppercase tracking-wider mb-0.5">📝 Note</div>
+                                <div className="text-xs text-gray-800 font-medium leading-relaxed" style={{ wordBreak: 'break-word' }}>
+                                  {url.notes}
+                                </div>
+                              </div>
                             )}
                           </td>
                           <td className="py-4 px-6">
-                            <a 
-                              href={shortLink} 
-                              target="_blank" 
-                              rel="noopener noreferrer" 
-                              className="text-indigo-600 hover:text-indigo-500 font-bold flex items-center gap-1.5 group w-fit"
-                            >
-                              <span>{url.short_code}</span>
-                              <ArrowUpRight className="w-3.5 h-3.5 opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
-                            </a>
+                            <div className="flex items-center gap-1.5">
+                              <a 
+                                href={shortLink} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-500 font-bold flex items-center gap-1.5 group w-fit"
+                              >
+                                <span>{url.short_code}</span>
+                                <ArrowUpRight className="w-3.5 h-3.5 opacity-50 group-hover:opacity-100 transition-opacity shrink-0" />
+                              </a>
+                              {url.has_password && (
+                                <Lock className="w-3.5 h-3.5 text-indigo-500 shrink-0" title="Password Protected" />
+                              )}
+                            </div>
                           </td>
                           <td className="py-4 px-6 text-center">
-                            <span className="font-black text-gray-850 px-2 py-1 rounded bg-gray-100/60 text-xs">
+                            <span className="font-black text-gray-850 dark:text-gray-200 px-2 py-1 rounded bg-gray-100/60 dark:bg-white/5 text-xs">
                               {url.click_count}
+                              {url.max_clicks !== null && ` / ${url.max_clicks}`}
                             </span>
+                            {url.max_clicks !== null && (
+                              <div className="w-16 bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full mx-auto mt-1 overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full ${limitReached ? 'bg-rose-500' : 'bg-indigo-500'}`} 
+                                  style={{ width: `${Math.min(100, (url.click_count / url.max_clicks) * 100)}%` }}
+                                />
+                              </div>
+                            )}
                           </td>
                           <td className="py-4 px-6 text-xs text-gray-400 space-y-1">
                             <div className="flex items-center gap-1">
@@ -534,6 +737,13 @@ const Dashboard = () => {
                           <td className="py-4 px-6 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <button
+                                onClick={() => handleToggleActive(url)}
+                                title={isPaused ? "Resume Redirects" : "Pause Redirects"}
+                                className={`p-2 rounded-lg bg-white/50 dark:bg-white/5 border border-gray-100 dark:border-white/10 hover:border-indigo-300 text-gray-500 hover:text-indigo-600 transition-all cursor-pointer`}
+                              >
+                                {isPaused ? <Play className="w-3.5 h-3.5 text-emerald-500" /> : <Pause className="w-3.5 h-3.5 text-amber-500" />}
+                              </button>
+                              <button
                                 onClick={() => handleCopy(url.short_code)}
                                 title="Copy Short URL"
                                 className="p-2 rounded-lg bg-white/50 border border-gray-100 hover:border-indigo-300 text-gray-500 hover:text-indigo-600 transition-all cursor-pointer"
@@ -550,7 +760,7 @@ const Dashboard = () => {
                               <Link
                                 to={`/analytics/${url.short_code}`}
                                 title="View Analytics"
-                                className="p-2 rounded-lg bg-white/50 border border-gray-100 hover:border-indigo-300 text-gray-500 hover:text-indigo-600 transition-all"
+                                className="p-2 rounded-lg bg-white/50 border border-gray-100 hover:border-indigo-300 text-gray-500 hover:text-indigo-650 transition-all"
                               >
                                 <BarChart3 className="w-3.5 h-3.5" />
                               </Link>
@@ -662,7 +872,7 @@ const Dashboard = () => {
 
             <form onSubmit={handleCreateOrUpdate} className="space-y-4">
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
                   Destination URL
                 </label>
                 <input
@@ -671,21 +881,105 @@ const Dashboard = () => {
                   placeholder="https://example.com/very-long-path-goes-here"
                   value={originalUrl}
                   onChange={(e) => setOriginalUrl(e.target.value)}
-                  className="w-full input-light px-3.5 py-2.5 text-sm"
+                  className="w-full input-light dark:bg-black/20 dark:text-white dark:border-white/10 px-3.5 py-2.5 text-sm"
                 />
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+                    Expiry Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={expiryDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setExpiryDate(e.target.value)}
+                    className="w-full input-light dark:bg-black/20 dark:text-white dark:border-white/10 px-3.5 py-2.5 text-sm text-gray-650"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+                    Link Category
+                  </label>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                    className="w-full input-light dark:bg-black/20 dark:text-white dark:border-white/10 px-3.5 py-2.5 text-sm"
+                  >
+                    <option value="General">General</option>
+                    <option value="Work">Work</option>
+                    <option value="College">College</option>
+                    <option value="Personal">Personal</option>
+                    <option value="Marketing">Marketing</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+                    Change Password (Optional)
+                  </label>
+                  <input
+                    type="password"
+                    placeholder="Enter new password (or leave blank)"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full input-light dark:bg-black/20 dark:text-white dark:border-white/10 px-3.5 py-2.5 text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+                    Click Limit (Optional)
+                  </label>
+                  <input
+                    type="number"
+                    placeholder="No limit"
+                    value={maxClicks}
+                    onChange={(e) => setMaxClicks(e.target.value)}
+                    className="w-full input-light dark:bg-black/20 dark:text-white dark:border-white/10 px-3.5 py-2.5 text-sm"
+                  />
+                </div>
+              </div>
+
               <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                  Expiry Date (Optional)
+                <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+                  Notes
                 </label>
                 <input
-                  type="date"
-                  value={expiryDate}
-                  min={new Date().toISOString().split('T')[0]}
-                  onChange={(e) => setExpiryDate(e.target.value)}
-                  className="w-full input-light px-3.5 py-2.5 text-sm text-gray-600"
+                  type="text"
+                  placeholder="Additional context/notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="w-full input-light dark:bg-black/20 dark:text-white dark:border-white/10 px-3.5 py-2.5 text-sm"
                 />
+              </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-gray-50/50 dark:bg-white/5 border border-gray-100 dark:border-white/10 rounded-xl">
+                <div>
+                  <label className="block text-xs font-bold text-gray-800 dark:text-gray-200">
+                    Active Status
+                  </label>
+                  <span className="text-[10px] text-gray-450">
+                    {isActive ? 'Link redirects normally' : 'Link redirection is temporarily paused'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsActive(!isActive)}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                    isActive ? 'bg-indigo-500' : 'bg-gray-200 dark:bg-gray-750'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      isActive ? 'translate-x-5' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
               </div>
 
               <div className="flex items-center justify-end gap-3 mt-6">

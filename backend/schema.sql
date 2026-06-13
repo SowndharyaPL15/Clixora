@@ -17,6 +17,12 @@ CREATE TABLE IF NOT EXISTS urls (
     click_count INTEGER DEFAULT 0,
     qr_code TEXT, -- Base64 encoded string or image URL
     expiry_date TIMESTAMP WITH TIME ZONE,
+    password_hash VARCHAR(255),
+    max_clicks INTEGER,
+    is_active BOOLEAN DEFAULT TRUE,
+    ai_summary TEXT,
+    category VARCHAR(50) DEFAULT 'General',
+    notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

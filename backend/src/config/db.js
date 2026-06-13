@@ -190,6 +190,12 @@ const initDb = async () => {
           click_count INTEGER DEFAULT 0,
           qr_code TEXT,
           expiry_date TIMESTAMP WITH TIME ZONE,
+          password_hash VARCHAR(255),
+          max_clicks INTEGER,
+          is_active BOOLEAN DEFAULT TRUE,
+          ai_summary TEXT,
+          category VARCHAR(50) DEFAULT 'General',
+          notes TEXT,
           created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
         );
 
@@ -207,7 +213,18 @@ const initDb = async () => {
 
         CREATE INDEX IF NOT EXISTS idx_visits_url_id ON visits(url_id);
       `);
-      console.log('PostgreSQL tables initialized successfully.');
+
+      // Run migrations for existing databases
+      await pool.query(`
+        ALTER TABLE urls ADD COLUMN IF NOT EXISTS password_hash VARCHAR(255);
+        ALTER TABLE urls ADD COLUMN IF NOT EXISTS max_clicks INTEGER;
+        ALTER TABLE urls ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+        ALTER TABLE urls ADD COLUMN IF NOT EXISTS ai_summary TEXT;
+        ALTER TABLE urls ADD COLUMN IF NOT EXISTS category VARCHAR(50) DEFAULT 'General';
+        ALTER TABLE urls ADD COLUMN IF NOT EXISTS notes TEXT;
+      `);
+
+      console.log('PostgreSQL tables initialized and migrated successfully.');
     } catch (err) {
       console.error('Failed to initialize PostgreSQL database tables:', err);
     }
@@ -231,6 +248,12 @@ const initDb = async () => {
           click_count INTEGER DEFAULT 0,
           qr_code TEXT,
           expiry_date TEXT,
+          password_hash TEXT,
+          max_clicks INTEGER,
+          is_active INTEGER DEFAULT 1,
+          ai_summary TEXT,
+          category TEXT DEFAULT 'General',
+          notes TEXT,
           created_at TEXT DEFAULT (datetime('now'))
         );
 
@@ -248,7 +271,34 @@ const initDb = async () => {
 
         CREATE INDEX IF NOT EXISTS idx_visits_url_id ON visits(url_id);
       `);
-      console.log('SQLite database tables initialized successfully.');
+
+      // Run SQLite migration to add missing columns
+      try {
+        const columns = sqlite.prepare("PRAGMA table_info(urls)").all();
+        const columnNames = columns.map(c => c.name);
+        if (!columnNames.includes('password_hash')) {
+          sqlite.exec("ALTER TABLE urls ADD COLUMN password_hash TEXT");
+        }
+        if (!columnNames.includes('max_clicks')) {
+          sqlite.exec("ALTER TABLE urls ADD COLUMN max_clicks INTEGER");
+        }
+        if (!columnNames.includes('is_active')) {
+          sqlite.exec("ALTER TABLE urls ADD COLUMN is_active INTEGER DEFAULT 1");
+        }
+        if (!columnNames.includes('ai_summary')) {
+          sqlite.exec("ALTER TABLE urls ADD COLUMN ai_summary TEXT");
+        }
+        if (!columnNames.includes('category')) {
+          sqlite.exec("ALTER TABLE urls ADD COLUMN category TEXT DEFAULT 'General'");
+        }
+        if (!columnNames.includes('notes')) {
+          sqlite.exec("ALTER TABLE urls ADD COLUMN notes TEXT");
+        }
+      } catch (err) {
+        console.error('Failed to migrate SQLite columns:', err);
+      }
+
+      console.log('SQLite database tables initialized and migrated successfully.');
     } catch (err) {
       console.error('Failed to initialize SQLite database tables:', err);
     }

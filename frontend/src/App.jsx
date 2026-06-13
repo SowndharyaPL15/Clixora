@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import Navbar from './components/Navbar';
-import ThemeToggle from './components/ThemeToggle';
 import PrivateRoute from './components/PrivateRoute';
 import PublicRoute from './components/PublicRoute';
 import Login from './pages/Login';
@@ -10,11 +9,12 @@ import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
 import Analytics from './pages/Analytics';
 import Landing from './pages/Landing';
+import Unlock from './pages/Unlock';
 
 const AppLayout = () => {
   const location = useLocation();
-  const hideNavbarRoutes = ['/', '/login', '/signup'];
-  const showNavbar = !hideNavbarRoutes.includes(location.pathname);
+  const hideNavbarRoutes = ['/', '/login', '/signup', '/unlock']; // Add /unlock to hidden navbar routes
+  const showNavbar = !hideNavbarRoutes.includes(location.pathname) && !location.pathname.startsWith('/unlock/');
 
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'light');
 
@@ -55,6 +55,9 @@ const AppLayout = () => {
             <Route path="/dashboard" element={<Dashboard />} />
           </Route>
 
+          {/* Public Unlock Route */}
+          <Route path="/unlock/:shortCode" element={<Unlock />} />
+
           {/* Public/Protected Analytics Route */}
           <Route path="/analytics/:shortCode" element={<Analytics />} />
           
@@ -63,8 +66,6 @@ const AppLayout = () => {
         </Routes>
       </div>
       
-      {/* Floating Theme Toggle */}
-      <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
     </div>
   );
 };

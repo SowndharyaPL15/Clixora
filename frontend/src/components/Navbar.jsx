@@ -44,19 +44,7 @@ const Navbar = ({ theme, toggleTheme }) => {
               </Link>
             )}
 
-            {/* Dark/Light Theme Switcher (Near Dashboard) */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 rounded-xl border border-gray-200/45 dark:border-slate-800 hover:bg-gray-150/40 dark:hover:bg-slate-850/40 text-gray-500 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-amber-400 transition-all cursor-pointer flex items-center justify-center"
-              title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
-              aria-label="Toggle Theme"
-            >
-              {theme === 'light' ? (
-                <Moon className="w-4.5 h-4.5" />
-              ) : (
-                <Sun className="w-4.5 h-4.5 text-amber-400" />
-              )}
-            </button>
+
 
             {user && (
               <>
