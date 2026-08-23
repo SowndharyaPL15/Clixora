@@ -2,7 +2,7 @@ services:
   # Backend Web Service
   - type: web
     name: clixora-backend
-    env: node
+    runtime: node
     rootDir: backend
     buildCommand: npm install
     startCommand: node src/server.js
@@ -32,12 +32,12 @@ services:
           property: host
 
   # Frontend Static Site
-  - type: static
+  - type: web
     name: clixora-frontend
-    env: static
+    runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
-    publishDir: dist
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*
