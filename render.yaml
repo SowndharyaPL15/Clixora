@@ -1,0 +1,56 @@
+services:
+  # Backend Web Service
+  - type: web
+    name: clixora-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node src/server.js
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: clixora-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: clixora-frontend
+          property: host
+      - key: BACKEND_URL
+        fromService:
+          type: web
+          name: clixora-backend
+          property: host
+
+  # Frontend Static Site
+  - type: static
+    name: clixora-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    publishDir: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_BACKEND_URL
+        fromService:
+          type: web
+          name: clixora-backend
+          property: host
+
+databases:
+  - name: clixora-db
+    databaseName: clixora
+    user: clixora_user
+    plan: free
