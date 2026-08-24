@@ -13,9 +13,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: DATABASE_URL
-        fromDatabase:
-          name: clixora-db
-          property: connectionString
+        sync: false # User will input their free Neon DB connection string here
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
@@ -45,9 +43,3 @@ services:
         value: https://clixora-backend.onrender.com/api
       - key: VITE_GOOGLE_CLIENT_ID
         sync: false
-
-databases:
-  - name: clixora-db
-    databaseName: clixora
-    user: clixora_user
-    plan: free
