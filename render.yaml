@@ -21,15 +21,9 @@ services:
       - key: JWT_EXPIRES_IN
         value: 7d
       - key: FRONTEND_URL
-        fromService:
-          type: web
-          name: clixora-frontend
-          property: url
+        value: https://clixora-frontend.onrender.com
       - key: BACKEND_URL
-        fromService:
-          type: web
-          name: clixora-backend
-          property: url
+        value: https://clixora-backend.onrender.com
       - key: GOOGLE_CLIENT_ID
         sync: false
 
@@ -46,15 +40,9 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_BACKEND_URL
-        fromService:
-          type: web
-          name: clixora-backend
-          property: url
+        value: https://clixora-backend.onrender.com
       - key: VITE_API_URL
-        fromService:
-          type: web
-          name: clixora-backend
-          property: url
+        value: https://clixora-backend.onrender.com/api
       - key: VITE_GOOGLE_CLIENT_ID
         sync: false
 
