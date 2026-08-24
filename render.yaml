@@ -24,12 +24,14 @@ services:
         fromService:
           type: web
           name: clixora-frontend
-          property: host
+          property: url
       - key: BACKEND_URL
         fromService:
           type: web
           name: clixora-backend
-          property: host
+          property: url
+      - key: GOOGLE_CLIENT_ID
+        sync: false
 
   # Frontend Static Site
   - type: web
@@ -47,7 +49,14 @@ services:
         fromService:
           type: web
           name: clixora-backend
-          property: host
+          property: url
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: clixora-backend
+          property: url
+      - key: VITE_GOOGLE_CLIENT_ID
+        sync: false
 
 databases:
   - name: clixora-db

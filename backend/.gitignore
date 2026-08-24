@@ -11,6 +11,7 @@ dist/
 
 # SQLite local database
 database.sqlite
+data/
 
 # Logs
 *.log
