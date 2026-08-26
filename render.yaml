@@ -21,7 +21,7 @@ services:
       - key: FRONTEND_URL
         value: https://clixora-frontend.onrender.com
       - key: BACKEND_URL
-        value: https://clixora-backend.onrender.com
+        value: https://clixora-backend-lbtv.onrender.com
       - key: GOOGLE_CLIENT_ID
         sync: false
 
@@ -38,8 +38,8 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_BACKEND_URL
-        value: https://clixora-backend.onrender.com
+        value: https://clixora-backend-lbtv.onrender.com
       - key: VITE_API_URL
-        value: https://clixora-backend.onrender.com/api
+        value: https://clixora-backend-lbtv.onrender.com/api
       - key: VITE_GOOGLE_CLIENT_ID
         sync: false
