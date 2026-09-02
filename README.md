@@ -1,6 +1,7 @@
 # Clixora 🔗
 
-[GitHub Repository](https://github.com/SowndharyaPL15/Clixora) • Live Demo: *Add your live demo URL here*
+• Live Demo:https://clixora-frontend.onrender.com
+
 
 A production-quality full-stack **URL Shortener** application with comprehensive **Real-Time Link Analytics**. Clixora features user authentication, custom aliases, automatic QR code generation, link expiry, bulk URL shortening via CSV files, and detailed tracking of device, browser, and click history.
 
